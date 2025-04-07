@@ -255,6 +255,19 @@ footer {
   margin-bottom: 1rem;
 }
 
+#checkout-btn {
+  background-color:  #3498db;
+  color: white;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
+  margin-top: 1rem;
+}
+
 /* Стили для личного кабинета */
 .account-content {
   display: grid;
@@ -330,6 +343,8 @@ footer {
   display: flex;
   align-items: center;
   margin-bottom: 1rem;
+  justify-content: space-between;
+  padding: 8px 0;
 }
 
 .order-item img {
@@ -439,6 +454,45 @@ footer {
     margin-bottom: 2rem;
     color: #2c3e50;
   }
+
+/* Стили для оформления заказа */
+.submit-btn {
+  background-color:  #3498db;
+  color: white;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
+  margin-top: 1rem;
+}
+
+/* Стили для информации о продукте */
+.actions button {
+  background-color:  #3498db;
+  color: white;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
+  margin-top: 1rem;
+}
+
+#quantity{
+  height: 44px;
+  padding: 0 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 70px;
+  text-align: center;
+}
+
 
 /* Адаптивность
 @media (max-width: 768px) {

@@ -75,7 +75,7 @@ app.post('/api/logout', (req, res) => {
 // Получение текущего пользователя
 app.get('/api/me', authenticate, async (req, res) => {
   const { rows } = await db.query(
-    'SELECT id, email, name FROM users WHERE id = $1', 
+    'SELECT id, email, name, created_at FROM users WHERE id = $1', 
     [req.user.id]
   );
   res.json(rows[0]);

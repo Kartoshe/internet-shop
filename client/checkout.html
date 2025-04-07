@@ -134,8 +134,8 @@
       const itemsContainer = document.getElementById('order-items');
       itemsContainer.innerHTML = orderItems.map(item => `
         <div class="order-item">
-          <span>${item.name} × ${item.quantity}</span>
-          <span>${(item.price * item.quantity).toLocaleString()} ₽</span>
+          <span>${item.name} (${item.quantity} × ${item.price.toLocaleString()}₽)</span>
+          <span>${(item.price * item.quantity).toLocaleString()}₽</span>
         </div>
       `).join('');
       
