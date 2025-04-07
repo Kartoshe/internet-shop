@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Главная - Интернет-магазин</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html" class="active">Главная</a>
+      <a href="catalog.html">Каталог</a>
+      <a href="cart.html">Корзина (<span class="cart-count">0</span>)</a>
+      <div id="auth-links">
+        <a href="login.html" id="login-link">Войти</a>
+        <a href="register.html" id="register-link">Регистрация</a>
+        <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <button id="logout-btn" style="display:none">Выйти</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="home-page">
+    <section class="hero">
+      <h1>Добро пожаловать в наш магазин</h1>
+      <p>Лучшие товары по выгодным ценам</p>
+      <a href="catalog.html" class="btn">Перейти в каталог</a>
+    </section>
+
+    <section class="featured-products">
+      <h2>Популярные товары</h2>
+      <div class="products-grid" id="featured-products">
+        <!-- Товары будут загружены через JS -->
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2023 Интернет-магазин. Все права защищены.</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Проверка авторизации
+      const isAuth = await checkAuth();
+      if (isAuth) {
+        document.getElementById('login-link').style.display = 'none';
+        document.getElementById('register-link').style.display = 'none';
+        document.getElementById('account-link').style.display = 'inline-block';
+        document.getElementById('logout-btn').style.display = 'inline-block';
+      }
+      
+      // Кнопка выхода
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      // Загрузка популярных товаров
+      const products = await loadProducts({ sort: 'rating', limit: 4 });
+      console.log('Получены товары:', products);
+      const container = document.getElementById('featured-products');
+      container.innerHTML = products.map(product => `
+        <div class="product-card">
+          <img src="${product.image_url}" alt="${product.name}">
+          <h3>${product.name}</h3>
+          <div class="price">${product.price.toLocaleString()} ₽</div>
+          <button onclick="location.href='product.html?id=${product.id}'">Подробнее</button>
+        </div>
+      `).join('');
+      if (products.length === 0) {
+        container.innerHTML = '<p>Популярные товары временно недоступны</p>';
+        }
+    });
+  </script>
+</body>
+</html>

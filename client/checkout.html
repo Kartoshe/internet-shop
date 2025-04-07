@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Оформление заказа - Интернет-магазин</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="catalog.html">Каталог</a>
+      <a href="cart.html">Корзина (<span class="cart-count">0</span>)</a>
+      <div id="auth-links">
+        <a href="login.html" id="login-link">Войти</a>
+        <a href="register.html" id="register-link">Регистрация</a>
+        <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <button id="logout-btn" style="display:none">Выйти</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="checkout-page">
+    <h1>Оформление заказа</h1>
+    
+    <form id="checkout-form">
+      <div class="form-section">
+        <h2>Контактная информация</h2>
+        <div class="form-group">
+          <label for="name">ФИО*</label>
+          <input type="text" id="name" required>
+        </div>
+        <div class="form-group">
+          <label for="phone">Телефон*</label>
+          <input type="tel" id="phone" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email*</label>
+          <input type="email" id="email" required>
+        </div>
+      </div>
+      
+      <div class="form-section">
+        <h2>Доставка</h2>
+        <div class="form-group">
+          <label for="address">Адрес доставки*</label>
+          <textarea id="address" required></textarea>
+        </div>
+        <div class="form-group">
+          <label for="delivery-method">Способ доставки</label>
+          <select id="delivery-method">
+            <option value="courier">Курьером</option>
+            <option value="pickup">Самовывоз</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="form-section">
+        <h2>Способ оплаты</h2>
+        <div class="form-group">
+          <label>
+            <input type="radio" name="payment" value="card" checked> Картой онлайн
+          </label>
+          <label>
+            <input type="radio" name="payment" value="cash"> Наличными при получении
+          </label>
+        </div>
+      </div>
+      
+      <div class="order-summary">
+        <h3>Ваш заказ</h3>
+        <div id="order-items">
+          <!-- Товары будут загружены через JS -->
+        </div>
+        <div class="total">
+          <strong>Итого:</strong> <span id="order-total">0</span> ₽
+        </div>
+      </div>
+      
+      <button type="submit" class="submit-btn">Подтвердить заказ</button>
+    </form>
+  </main>
+
+  <footer>
+    <p>© 2023 Интернет-магазин</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Проверка авторизации
+      const isAuth = await checkAuth();
+      if (!isAuth) {
+        alert('Для оформления заказа войдите в систему');
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      // Показать кнопку выхода
+      document.getElementById('login-link').style.display = 'none';
+      document.getElementById('register-link').style.display = 'none';
+      document.getElementById('account-link').style.display = 'inline-block';
+      document.getElementById('logout-btn').style.display = 'inline-block';
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      // Заполнить данные пользователя, если он авторизован
+      const user = await fetch('http://localhost:3000/api/me', {
+        credentials: 'include'
+      }).then(res => res.json());
+      
+      if (user) {
+        document.getElementById('name').value = user.name || '';
+        document.getElementById('email').value = user.email || '';
+      }
+      
+      // Загрузить товары в корзине
+      if (cartItems.length === 0) {
+        alert('Ваша корзина пуста');
+        window.location.href = 'catalog.html';
+        return;
+      }
+      
+      const productIds = cartItems.map(item => item.id);
+      const response = await fetch(`http://localhost:3000/api/products?ids=${productIds.join(',')}`);
+      const products = await response.json();
+      
+      const orderItems = cartItems.map(cartItem => {
+        const product = products.find(p => p.id === cartItem.id);
+        return { ...product, quantity: cartItem.quantity };
+      });
+      
+      // Отобразить товары в заказе
+      const itemsContainer = document.getElementById('order-items');
+      itemsContainer.innerHTML = orderItems.map(item => `
+        <div class="order-item">
+          <span>${item.name} × ${item.quantity}</span>
+          <span>${(item.price * item.quantity).toLocaleString()} ₽</span>
+        </div>
+      `).join('');
+      
+      // Посчитать итоговую сумму
+      const total = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      document.getElementById('order-total').textContent = total.toLocaleString();
+      
+      // Обработка оформления заказа
+      document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const orderData = {
+          name: document.getElementById('name').value,
+          phone: document.getElementById('phone').value,
+          email: document.getElementById('email').value,
+          address: document.getElementById('address').value,
+          deliveryMethod: document.getElementById('delivery-method').value,
+          paymentMethod: document.querySelector('input[name="payment"]:checked').value,
+          items: cartItems
+        };
+        
+        try {
+          const response = await fetch('http://localhost:3000/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ items: cartItems })
+          });
+          
+          if (!response.ok) throw new Error('Ошибка оформления заказа');
+          
+          const order = await response.json();
+          localStorage.removeItem('cart');
+          cartItems = [];
+          
+          alert(`Заказ №${order.id} успешно оформлен!`);
+          window.location.href = 'account.html';
+        } catch (err) {
+          alert('Произошла ошибка: ' + err.message);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

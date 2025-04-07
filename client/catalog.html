@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Каталог товаров</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="catalog.html">Каталог</a>
+      <a href="cart.html">Корзина (<span class="cart-count">0</span>)</a>
+      <div id="auth-links">
+        <a href="login.html" id="login-link">Войти</a>
+        <a href="register.html" id="register-link">Регистрация</a>
+        <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <button id="logout-btn" style="display:none">Выйти</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="catalog-page">
+    <h1>Каталог товаров</h1>
+    
+    <div class="filters">
+      <input type="text" id="search-input" placeholder="Поиск...">
+      <select id="category-filter">
+        <option value="">Все категории</option>
+      </select>
+      <div class="price-range">
+        <input type="number" id="min-price" placeholder="От">
+        <input type="number" id="max-price" placeholder="До">
+      </div>
+      <select id="sort-by">
+        <option value="">Сортировка</option>
+        <option value="price_asc">По цене (дешевые)</option>
+        <option value="price_desc">По цене (дорогие)</option>
+        <option value="rating">По рейтингу</option>
+        <option value="newest">Новинки</option>
+      </select>
+      <button id="apply-filters">Применить</button>
+    </div>
+    
+    <div class="products-grid" id="products-container">
+      <!-- Товары будут загружены через JS -->
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2023 Интернет-магазин</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Проверка авторизации
+      const isAuth = await checkAuth();
+      if (isAuth) {
+        document.getElementById('login-link').style.display = 'none';
+        document.getElementById('register-link').style.display = 'none';
+        document.getElementById('account-link').style.display = 'inline-block';
+        document.getElementById('logout-btn').style.display = 'inline-block';
+      }
+      
+      // Кнопка выхода
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      // Загрузка категорий
+      const categories = await loadCategories();
+      const categorySelect = document.getElementById('category-filter');
+      categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        categorySelect.appendChild(option);
+      });
+      
+      // Загрузка товаров
+      async function loadAndDisplayProducts() {
+        const products = await loadProducts({
+          category: categorySelect.value,
+          minPrice: document.getElementById('min-price').value,
+          maxPrice: document.getElementById('max-price').value,
+          sort: document.getElementById('sort-by').value,
+          search: document.getElementById('search-input').value
+        });
+        
+        const container = document.getElementById('products-container');
+        container.innerHTML = products.map(product => `
+          <div class="product-card">
+            <img src="${product.image_url}" alt="${product.name}">
+            <h3>${product.name}</h3>
+            <div class="price">${product.price.toLocaleString()} ₽</div>
+            <div class="rating">★ ${product.rating}</div>
+            <button onclick="location.href='product.html?id=${product.id}'">Подробнее</button>
+            <button onclick="addToCart(${product.id})">В корзину</button>
+          </div>
+        `).join('');
+      }
+      
+      // Применение фильтров
+      document.getElementById('apply-filters').addEventListener('click', loadAndDisplayProducts);
+      
+      // Поиск при нажатии Enter
+      document.getElementById('search-input').addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') loadAndDisplayProducts();
+      });
+      
+      // Первоначальная загрузка
+      await loadAndDisplayProducts();
+    });
+  </script>
+</body>
+</html>

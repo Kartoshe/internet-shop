@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Личный кабинет - Интернет-магазин</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="catalog.html">Каталог</a>
+      <a href="cart.html">Корзина (<span class="cart-count">0</span>)</a>
+      <div id="auth-links">
+        <a href="login.html" id="login-link">Войти</a>
+        <a href="register.html" id="register-link">Регистрация</a>
+        <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <button id="logout-btn" style="display:none">Выйти</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="account-page">
+    <h1>Личный кабинет</h1>
+    
+    <div class="account-content">
+      <div class="profile-section">
+        <h2>Профиль</h2>
+        <div class="profile-info">
+          <p><strong>Имя:</strong> <span id="profile-name"></span></p>
+          <p><strong>Email:</strong> <span id="profile-email"></span></p>
+          <p><strong>Дата регистрации:</strong> <span id="profile-date"></span></p>
+        </div>
+      </div>
+      
+      <div class="orders-section">
+        <h2>Мои заказы</h2>
+        <div id="orders-list">
+          <p>Загрузка заказов...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2023 Интернет-магазин</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Проверка авторизации
+      const isAuth = await checkAuth();
+      if (!isAuth) {
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      // Показать кнопку выхода
+      document.getElementById('login-link').style.display = 'none';
+      document.getElementById('register-link').style.display = 'none';
+      document.getElementById('account-link').style.display = 'inline-block';
+      document.getElementById('logout-btn').style.display = 'inline-block';
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      // Загрузить данные пользователя
+      const user = await fetch('http://localhost:3000/api/me', {
+        credentials: 'include'
+      }).then(res => res.json());
+      
+      if (user) {
+        document.getElementById('profile-name').textContent = user.name || 'Не указано';
+        document.getElementById('profile-email').textContent = user.email;
+        document.getElementById('profile-date').textContent = new Date(user.created_at).toLocaleDateString();
+      }
+      
+      // Загрузить заказы
+      const orders = await fetch('http://localhost:3000/api/orders', {
+        credentials: 'include'
+      }).then(res => res.json());
+      
+      const ordersContainer = document.getElementById('orders-list');
+      
+      if (orders.length === 0) {
+        ordersContainer.innerHTML = '<p>У вас пока нет заказов</p>';
+      } else {
+        ordersContainer.innerHTML = orders.map(order => `
+          <div class="order-card">
+            <div class="order-header">
+              <h3>Заказ №${order.id}</h3>
+              <span class="order-status ${order.status}">${order.status}</span>
+              <span class="order-date">${new Date(order.created_at).toLocaleDateString()}</span>
+              <span class="order-total">${order.total_price.toLocaleString()} ₽</span>
+            </div>
+            <div class="order-items">
+              ${order.items.map(item => `
+                <div class="order-item">
+                  <img src="${item.image_url}" alt="${item.name}">
+                  <div>
+                    <p>${item.name}</p>
+                    <p>${item.price.toLocaleString()} ₽ × ${item.quantity}</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('');
+      }
+    });
+  </script>
+</body>
+</html>

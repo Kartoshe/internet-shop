@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Страница товара</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="catalog.html">Каталог</a>
+      <a href="cart.html">Корзина (<span class="cart-count">0</span>)</a>
+      <div id="auth-links">
+        <a href="login.html" id="login-link">Войти</a>
+        <a href="register.html" id="register-link">Регистрация</a>
+        <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <button id="logout-btn" style="display:none">Выйти</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="product-page">
+    <div id="product-container">
+      <!-- Товар будет загружен через JS -->
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2023 Интернет-магазин</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Проверка авторизации
+      const isAuth = await checkAuth();
+      if (isAuth) {
+        document.getElementById('login-link').style.display = 'none';
+        document.getElementById('register-link').style.display = 'none';
+        document.getElementById('account-link').style.display = 'inline-block';
+        document.getElementById('logout-btn').style.display = 'inline-block';
+      }
+      
+      // Кнопка выхода
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      // Получение ID товара из URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const productId = urlParams.get('id');
+      
+      if (!productId) {
+        alert('Товар не найден');
+        window.location.href = 'catalog.html';
+        return;
+      }
+      
+      try {
+        // Загрузка данных товара
+        const product = await loadProduct(productId);
+        const specs = product.specifications || {};
+        
+        // Отображение товара
+        const container = document.getElementById('product-container');
+        container.innerHTML = `
+        <div class="product-main">
+            <img src="${product.image_url}" alt="${product.name}" class="product-image">
+            <div class="product-info">
+            <h1>${product.name}</h1>
+            <div class="price">${product.price.toLocaleString()} ₽</div>
+            <div class="rating">Рейтинг: ★ ${product.rating}</div>
+            <div class="stock">
+                ${product.stock_quantity > 0 
+                ? `В наличии: ${product.stock_quantity} шт.` 
+                : 'Нет в наличии'}
+            </div>
+            <div class="actions">
+                <input type="number" id="quantity" 
+                    value="1" 
+                    min="1" 
+                    max="${product.stock_quantity}"
+                    ${product.stock_quantity === 0 ? 'disabled' : ''}
+                    onchange="validateQuantity(this)">
+                <button onclick="addToCartWithValidation(${product.id})"
+                        ${product.stock_quantity === 0 ? 'disabled' : ''}>
+                ${product.stock_quantity > 0 ? 'Добавить в корзину' : 'Товар закончился'}
+                </button>
+                <span id="quantity-error" style="color: red; display: none;">
+                Максимум ${product.stock_quantity} шт.
+                </span>
+            </div>
+            </div>
+        </div>
+        <div class="product-details">
+            <h2>Описание</h2>
+            <p>${product.description}</p>
+            
+            <h2>Характеристики</h2>
+            <ul class="specs">
+            ${Object.entries(specs).map(([key, value]) => `
+                <li><strong>${key}:</strong> ${value}</li>
+            `).join('')}
+            </ul>
+        </div>
+        `;
+      } catch (err) {
+        alert(err.message);
+        window.location.href = 'catalog.html';
+      }
+    });
+  </script>
+</body>
+</html>

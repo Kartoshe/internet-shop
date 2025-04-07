@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Корзина - Интернет-магазин</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="catalog.html">Каталог</a>
+      <a href="cart.html" class="active">Корзина (<span class="cart-count">0</span>)</a>
+      <div id="auth-links">
+        <a href="login.html" id="login-link">Войти</a>
+        <a href="register.html" id="register-link">Регистрация</a>
+        <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <button id="logout-btn" style="display:none">Выйти</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="cart-page">
+    <h1>Ваша корзина</h1>
+    
+    <div id="cart-items-container">
+      <!-- Товары будут загружены через JS -->
+      <p id="empty-cart-message" style="display:none">Ваша корзина пуста</p>
+    </div>
+    
+    <div class="cart-summary">
+      <h3>Итого: <span id="total-price">0</span> ₽</h3>
+      <button id="checkout-btn" disabled>Оформить заказ</button>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2023 Интернет-магазин</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Проверка авторизации
+      const isAuth = await checkAuth();
+      if (isAuth) {
+        document.getElementById('login-link').style.display = 'none';
+        document.getElementById('register-link').style.display = 'none';
+        document.getElementById('account-link').style.display = 'inline-block';
+        document.getElementById('logout-btn').style.display = 'inline-block';
+      }
+      
+      // Кнопка выхода
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      // Загрузка корзины
+      async function loadCart() {
+        if (cartItems.length === 0) {
+          document.getElementById('empty-cart-message').style.display = 'block';
+          document.getElementById('checkout-btn').disabled = true;
+          return;
+        }
+        
+        // Получаем полную информацию о товарах в корзине
+        const productIds = cartItems.map(item => item.id);
+        const response = await fetch(`http://localhost:3000/api/products?ids=${productIds.join(',')}`);
+        const products = await response.json();
+        
+        // Сопоставляем товары с количеством в корзине
+        const cartWithDetails = cartItems.map(cartItem => {
+          const product = products.find(p => p.id === cartItem.id);
+          return { ...product, quantity: cartItem.quantity };
+        });
+        
+        // Отображаем товары
+        const container = document.getElementById('cart-items-container');
+        container.innerHTML = cartWithDetails.map(item => `
+          <div class="cart-item">
+            <img src="${item.image_url}" alt="${item.name}">
+            <div class="item-info">
+              <h3>${item.name}</h3>
+              <div class="price">${item.price.toLocaleString()} ₽</div>
+              <div class="quantity-controls">
+                <button onclick="updateQuantity(${item.id}, -1)">-</button>
+                <span>${item.quantity}</span>
+                <button onclick="updateQuantity(${item.id}, 1)">+</button>
+                <button onclick="removeFromCart(${item.id})" class="remove-btn">Удалить</button>
+              </div>
+            </div>
+            <div class="item-total">${(item.price * item.quantity).toLocaleString()} ₽</div>
+          </div>
+        `).join('');
+        
+        // Обновляем итоговую сумму
+        const total = cartWithDetails.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        document.getElementById('total-price').textContent = total.toLocaleString();
+        document.getElementById('checkout-btn').disabled = false;
+      }
+      
+      // Кнопка оформления заказа
+      document.getElementById('checkout-btn').addEventListener('click', () => {
+        window.location.href = 'checkout.html';
+      });
+      
+      await loadCart();
+    });
+    
+    // Функции для работы с корзиной
+    function updateQuantity(productId, change) {
+      const item = cartItems.find(item => item.id === productId);
+      if (item) {
+        item.quantity += change;
+        if (item.quantity <= 0) {
+          cartItems = cartItems.filter(item => item.id !== productId);
+        }
+        localStorage.setItem('cart', JSON.stringify(cartItems));
+        location.reload();
+      }
+    }
+    
+    function removeFromCart(productId) {
+      cartItems = cartItems.filter(item => item.id !== productId);
+      localStorage.setItem('cart', JSON.stringify(cartItems));
+      location.reload();
+    }
+  </script>
+</body>
+</html>
