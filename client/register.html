@@ -22,16 +22,47 @@
           <input type="email" id="email" required>
         </div>
         
+        <div class="form-row">
+          <div class="form-group">
+            <label for="password">Пароль</label>
+            <input type="password" id="password" required minlength="6">
+          </div>
+          
+          <div class="form-group">
+            <label for="confirm-password">Подтвердите пароль</label>
+            <input type="password" id="confirm-password" required minlength="6">
+          </div>
+        </div>
+
         <div class="form-group">
-          <label for="password">Пароль</label>
-          <input type="password" id="password" required minlength="6">
+          <label for="phone">Телефон</label>
+          <input type="tel" id="phone" placeholder="+7 (XXX) XXX-XX-XX">
         </div>
         
         <div class="form-group">
-          <label for="confirm-password">Подтвердите пароль</label>
-          <input type="password" id="confirm-password" required minlength="6">
+          <label for="address">Адрес</label>
+          <textarea id="address" rows="2"></textarea>
         </div>
         
+        <div class="form-row">
+          <div class="form-group">
+            <label for="birth-date">Дата рождения</label>
+            <input type="date" id="birth-date">
+          </div>
+          
+          <div class="form-group">
+            <label>Пол</label>
+            <div class="radio-group">
+              <label>
+                <input type="radio" name="gender" value="male"> Мужской
+              </label>
+              <label>
+                <input type="radio" name="gender" value="female"> Женский
+              </label>
+            </div>
+          </div>
+        </div>
+
         <button type="submit" class="btn">Зарегистрироваться</button>
       </form>
       
@@ -52,7 +83,11 @@
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirm-password').value;
-        
+        const phone = document.getElementById('phone').value;
+        const address = document.getElementById('address').value;
+        const birthDate = document.getElementById('birth-date').value;
+        const gender = document.querySelector('input[name="gender"]:checked')?.value;
+
         if (password !== confirmPassword) {
           alert('Пароли не совпадают');
           return;
@@ -62,7 +97,8 @@
           const response = await fetch('http://localhost:3000/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, name })
+            body: JSON.stringify({ email, password, name, phone: phone || null,
+              address: address || null, birth_date: birthDate || null, gender: gender || null })
           });
           
           if (!response.ok) {

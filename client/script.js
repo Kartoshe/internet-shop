@@ -58,6 +58,38 @@ function updateCartCount() {
   });
 }
 
+// Полное обновление отображения корзины
+async function updateCartDisplay() {
+  updateCartCount();
+
+  if (!document.getElementById('order-items')) return;
+
+  if (cartItems.length === 0) {
+    window.location.href = 'catalog.html';
+    return;
+  }
+
+  const productIds = cartItems.map(item => item.id);
+  const products = await fetch(`http://localhost:3000/api/products?ids=${productIds.join(',')}`)
+    .then(res => res.json());
+
+  const orderItems = cartItems.map(cartItem => {
+    const product = products.find(p => p.id === cartItem.id);
+    return { ...product, quantity: cartItem.quantity };
+  });
+
+  const itemsContainer = document.getElementById('order-items');
+  itemsContainer.innerHTML = orderItems.map(item => `
+    <div class="order-item">
+      <span>${item.name} (${item.quantity} × ${item.price.toLocaleString()}₽)</span>
+      <span>${(item.price * item.quantity).toLocaleString()}₽</span>
+    </div>
+  `).join('');
+
+  const total = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  document.getElementById('order-total').textContent = total.toLocaleString();
+}
+
 // Загрузка товаров для каталога
 async function loadProducts(filters = {}) {
     console.log('Функция вызвана с параметрами:', filters);

@@ -30,6 +30,10 @@
         <div class="profile-info">
           <p><strong>Имя:</strong> <span id="profile-name"></span></p>
           <p><strong>Email:</strong> <span id="profile-email"></span></p>
+          <p><strong>Телефон:</strong> <span id="profile-phone"></span></p>
+          <p><strong>Адрес:</strong> <span id="profile-address"></span></p>
+          <p><strong>Дата рождения:</strong> <span id="profile-birth-date"></span></p>
+          <p><strong>Пол:</strong> <span id="profile-gender"></span></p>
           <p><strong>Дата регистрации:</strong> <span id="profile-date"></span></p>
         </div>
       </div>
@@ -49,6 +53,22 @@
 
   <script src="script.js"></script>
   <script>
+    function formatPaymentMethod(method) {
+      const methods = {
+        'cash': 'Наличные',
+        'card': 'Карта'
+      };
+      return methods[method] || 'Не указан';
+    }
+
+    function formatGender(method) {
+      const methods = {
+        'male': 'Мужской',
+        'female': 'Женский'
+      };
+      return methods[method] || 'Не указан';
+    }
+    
     document.addEventListener('DOMContentLoaded', async () => {
       // Проверка авторизации
       const isAuth = await checkAuth();
@@ -70,8 +90,18 @@
       }).then(res => res.json());
       
       if (user) {
-        document.getElementById('profile-name').textContent = user.name || 'Не указано';
-        document.getElementById('profile-email').textContent = user.email;
+        // Функция для форматирования пустых значений
+        const formatValue = (value, placeholder = '—') => {
+          return value ? value : placeholder;
+        };
+
+        document.getElementById('profile-name').textContent = formatValue(user.name, 'Не указано');
+        document.getElementById('profile-email').textContent = formatValue(user.email);
+        document.getElementById('profile-phone').textContent = formatValue(user.phone, 'Не указан');
+        document.getElementById('profile-address').textContent = formatValue(user.address, 'Не указан');
+        document.getElementById('profile-birth-date').textContent = 
+          user.birth_date ? new Date(user.birth_date).toLocaleDateString() : 'Не указана';
+        document.getElementById('profile-gender').textContent = formatGender(user.gender);
         document.getElementById('profile-date').textContent = new Date(user.created_at).toLocaleDateString();
       }
       
@@ -92,6 +122,11 @@
               <span class="order-status ${order.status}">${order.status}</span>
               <span class="order-date">${new Date(order.created_at).toLocaleDateString()}</span>
               <span class="order-total">${order.total_price.toLocaleString()} ₽</span>
+            </div>
+            <div class="order-delivery-info">
+              <p><strong>Телефон:</strong> ${order.customer_phone}</p>
+              <p><strong>Адрес:</strong> ${order.delivery_address}</p>
+              <p><strong>Способ оплаты:</strong> ${formatPaymentMethod(order.payment_method)}</p>
             </div>
             <div class="order-items">
               ${order.items.map(item => `

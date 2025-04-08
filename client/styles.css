@@ -96,12 +96,12 @@ footer {
 }
 
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
   font-weight: bold;
 }
 
@@ -109,10 +109,26 @@ footer {
 .form-group textarea,
 .form-group select {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 1rem;
+}
+
+.radio-group {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.radio-group label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.radio-group input[type="radio"] {
+  margin: 0 5px 0 0;
+  transform: translateY(-1px); 
 }
 
 .btn {
@@ -352,6 +368,18 @@ footer {
   height: 50px;
   object-fit: cover;
   margin-right: 1rem;
+}
+
+.order-delivery-info {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 1rem;
+}
+
+.order-delivery-info p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
 }
 
 .home-page {

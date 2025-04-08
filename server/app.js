@@ -32,14 +32,25 @@ const authenticate = (req, res, next) => {
 
 // Регистрация
 app.post('/api/register', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, phone, address, birth_date, gender } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
   
   try {
     const { rows } = await db.query(
-      'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
-      [email, hashedPassword, name]
+      `INSERT INTO users (email, password_hash, name, 
+        phone, address, birth_date, gender
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, 
+         email, name, phone, address, birth_date, gender, created_at`,
+      [email, hashedPassword, name, phone || null,
+        address || null, birth_date || null, gender || null]
     );
+
+    // Форматируем дату рождения для ответа
+    const user = rows[0];
+    if (user.birth_date) {
+      user.birth_date = new Date(user.birth_date).toISOString().split('T')[0];
+    }
+
     res.status(201).json(rows[0]);
   } catch (err) {
     res.status(400).json({ error: 'Email уже занят' });
@@ -75,8 +86,10 @@ app.post('/api/logout', (req, res) => {
 // Получение текущего пользователя
 app.get('/api/me', authenticate, async (req, res) => {
   const { rows } = await db.query(
-    'SELECT id, email, name, created_at FROM users WHERE id = $1', 
-    [req.user.id]
+    `SELECT id, email, name, phone, address, 
+     birth_date, gender, created_at 
+     FROM users WHERE id = $1`, 
+     [req.user.id]
   );
   res.json(rows[0]);
 });
@@ -84,7 +97,7 @@ app.get('/api/me', authenticate, async (req, res) => {
 app.get('/api/products', async (req, res) => {
     console.log('Получен запрос с параметрами:', req.query);
     const { category, minPrice, maxPrice, sort, search, limit } = req.query; // Добавили limit
-    let query = 'SELECT id, name, price, image_url, rating, category FROM products WHERE 1=1';
+    let query = 'SELECT id, name, price, image_url, rating, category, stock_quantity FROM products WHERE 1=1';
     const params = [];
     
     if (category) {
@@ -119,15 +132,30 @@ app.get('/api/products', async (req, res) => {
     }
   
     try {
-        console.log('Выполняем SQL:', query, 'Параметры:', params); // Добавьте это
+        console.log('Выполняем SQL:', query, 'Параметры:', params); 
         const { rows } = await db.query(query, params);
-        console.log('Результат SQL:', rows.length, 'записей'); // Добавьте это
+        console.log('Результат SQL:', rows.length, 'записей'); 
         res.json(rows);
       } catch (err) {
-        console.error('Ошибка SQL:', err); // Добавьте это
+        console.error('Ошибка SQL:', err); 
         res.status(500).json({ error: 'Ошибка сервера' });
       }
   });
+
+// Проверка наличия товаров
+app.get('/api/products/stock', async (req, res) => {
+  const ids = req.query.ids.split(',').map(Number);
+  
+  try {
+    const { rows } = await db.query(
+      'SELECT id, name, stock_quantity FROM products WHERE id = ANY($1::int[])',
+      [ids]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 // Полная информация о товаре
 app.get('/api/products/:id', async (req, res) => {
@@ -143,11 +171,39 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
+
 // Создание заказа
 app.post('/api/orders', authenticate, async (req, res) => {
-  const { items } = req.body;
-  
+  const { items, phone, address, paymentMethod } = req.body;
+
   try {
+    // Начинаем транзакцию
+    await db.query('BEGIN');
+
+    // Проверяем наличие товаров и обновляем количество
+    for (const item of items) {
+      const { rows } = await db.query(
+        'SELECT stock_quantity FROM products WHERE id = $1 FOR UPDATE',
+        [item.id]
+      );
+      
+      if (rows.length === 0) {
+        await db.query('ROLLBACK');
+        return res.status(404).json({ error: `Товар с ID ${item.id} не найден` });
+      }
+
+      const currentStock = rows[0].stock_quantity;
+      if (currentStock < item.quantity) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ error: `Недостаточно товара ${item.id} в наличии` });
+      }
+      
+      await db.query(
+        'UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2',
+        [item.quantity, item.id]
+      );
+    }
+  
     // Подсчет общей суммы
     const productIds = items.map(item => item.id);
     const { rows: products } = await db.query(
@@ -162,8 +218,11 @@ app.post('/api/orders', authenticate, async (req, res) => {
     
     // Создание заказа
     const { rows: order } = await db.query(
-      'INSERT INTO orders (user_id, total_price) VALUES ($1, $2) RETURNING *',
-      [req.user.id, total]
+      `INSERT INTO orders 
+        (user_id, total_price, payment_method, customer_phone, delivery_address) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING *`,
+      [req.user.id, total, paymentMethod, phone, address]
     );
     
     // Добавление товаров в заказ
@@ -174,8 +233,11 @@ app.post('/api/orders', authenticate, async (req, res) => {
       );
     }
     
+    // Фиксируем транзакцию
+    await db.query('COMMIT');
     res.json(order[0]);
   } catch (err) {
+    await db.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ error: 'Ошибка при создании заказа' });
   }
@@ -186,7 +248,8 @@ app.get('/api/orders', authenticate, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT o.id, o.total_price, o.status, o.created_at, 
-       json_agg(json_build_object(
+      o.customer_phone, o.delivery_address, o.payment_method, 
+      json_agg(json_build_object(
          'id', p.id,
          'name', p.name, 
          'price', p.price,

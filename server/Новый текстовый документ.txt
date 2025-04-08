@@ -7,7 +7,13 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Товары (теперь с 7 полями)
+ALTER TABLE users
+ADD COLUMN phone VARCHAR(20),
+ADD COLUMN address TEXT,
+ADD COLUMN birth_date DATE,
+ADD COLUMN gender VARCHAR(10)
+
+-- Товары 
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -29,6 +35,11 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+ALTER TABLE orders
+ADD COLUMN customer_phone VARCHAR(20) NOT NULL, 
+ADD COLUMN delivery_address TEXT NOT NULL
+ADD COLUMN payment_method VARCHAR(50)
+
 -- Товары в заказе
 CREATE TABLE IF NOT EXISTS order_items (
   order_id INTEGER REFERENCES orders(id),
@@ -37,7 +48,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   PRIMARY KEY (order_id, product_id)
 );
 
--- Тестовые данные (7 товаров)
+-- Тестовые данные 
 INSERT INTO products (name, price, description, category, image_url, rating, stock_quantity, specifications) VALUES
 ('Ноутбук ASUS ROG Strix', 89990, 'Игровой ноутбук с экраном 15.6", процессор Intel Core i7', 'Электроника', 'https://example.com/laptop.jpg', 4.7, 10, '{"processor": "Intel Core i7", "ram": "16GB", "storage": "512GB SSD"}'),
 ('Смартфон iPhone 14', 79990, 'Флагманский смартфон с камерой 48 Мп', 'Электроника', 'https://example.com/iphone.jpg', 4.9, 15, '{"screen": "6.1", "battery": "3279 mAh"}'),

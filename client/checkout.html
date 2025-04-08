@@ -112,6 +112,8 @@
       if (user) {
         document.getElementById('name').value = user.name || '';
         document.getElementById('email').value = user.email || '';
+        document.getElementById('phone').value = user.phone || '';
+        document.getElementById('address').value = user.address || '';
       }
       
       // Загрузить товары в корзине
@@ -131,21 +133,52 @@
       });
       
       // Отобразить товары в заказе
-      const itemsContainer = document.getElementById('order-items');
-      itemsContainer.innerHTML = orderItems.map(item => `
-        <div class="order-item">
-          <span>${item.name} (${item.quantity} × ${item.price.toLocaleString()}₽)</span>
-          <span>${(item.price * item.quantity).toLocaleString()}₽</span>
-        </div>
-      `).join('');
-      
-      // Посчитать итоговую сумму
-      const total = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      document.getElementById('order-total').textContent = total.toLocaleString();
-      
+      await updateCartDisplay();
+       
+      // Функция проверки наличия перед оформлением
+      const verifyStockBeforeOrder = async () => {
+        const productIds = cartItems.map(item => item.id);
+        const response = await fetch(`http://localhost:3000/api/products/stock?ids=${productIds.join(',')}`);
+        const stockInfo = await response.json();
+        
+        let allAvailable = true;
+        const updatedCart = [];
+        
+        for (const item of cartItems) {
+          const product = stockInfo.find(p => p.id === item.id);
+          const availableQty = product.stock_quantity;
+          
+          if (availableQty <= 0) {
+            alert(`Товар "${product.name}" закончился и будет удален из корзины`);
+            allAvailable = false;
+            continue;
+          }
+          
+          if (availableQty < item.quantity) {
+            alert(`Товар "${product.name}" доступен только в количестве ${availableQty} шт.`);
+            item.quantity = availableQty;
+            allAvailable = false;
+          }
+          
+          updatedCart.push(item);
+        }
+        
+        if (!allAvailable) {
+          localStorage.setItem('cart', JSON.stringify(updatedCart));
+          cartItems = updatedCart;
+          await updateCartDisplay(); // Используем нашу новую функцию
+        }
+        
+        return allAvailable;
+      };
+
       // Обработка оформления заказа
       document.getElementById('checkout-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        if (!await verifyStockBeforeOrder()) {
+          return;
+        }
         
         const orderData = {
           name: document.getElementById('name').value,
@@ -162,7 +195,12 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ items: cartItems })
+            body: JSON.stringify({ 
+              items: cartItems,
+              phone: orderData.phone,
+              address: orderData.address,
+              paymentMethod: orderData.paymentMethod
+            })
           });
           
           if (!response.ok) throw new Error('Ошибка оформления заказа');
@@ -170,6 +208,7 @@
           const order = await response.json();
           localStorage.removeItem('cart');
           cartItems = [];
+          updateCartDisplay();
           
           alert(`Заказ №${order.id} успешно оформлен!`);
           window.location.href = 'account.html';

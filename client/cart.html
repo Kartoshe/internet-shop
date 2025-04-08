@@ -97,10 +97,30 @@
         document.getElementById('total-price').textContent = total.toLocaleString();
         document.getElementById('checkout-btn').disabled = false;
       }
+
+      // Функция проверки наличия товаров
+      const checkStock = async () => {
+        const productIds = cartItems.map(item => item.id);
+        const response = await fetch(`http://localhost:3000/api/products/stock?ids=${productIds.join(',')}`);
+        const stockInfo = await response.json();
+        
+        let allAvailable = true;
+        cartItems.forEach(item => {
+          const product = stockInfo.find(p => p.id === item.id);
+          if (product.stock_quantity < item.quantity) {
+            alert(`Товар "${product.name}" доступен только в количестве ${product.stock_quantity} шт.`);
+            allAvailable = false;
+          }
+        });
+        
+        return allAvailable;
+      };
       
       // Кнопка оформления заказа
-      document.getElementById('checkout-btn').addEventListener('click', () => {
-        window.location.href = 'checkout.html';
+      document.getElementById('checkout-btn').addEventListener('click', async () => {
+        if (await checkStock()) {
+          window.location.href = 'checkout.html';
+        }
       });
       
       await loadCart();
