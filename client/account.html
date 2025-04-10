@@ -43,6 +43,7 @@
         <div id="orders-list">
           <p>Загрузка заказов...</p>
         </div>
+        <a href="orders.html" class="btn-view-all">Посмотреть полную историю заказов →</a>
       </div>
     </div>
   </main>
@@ -53,14 +54,6 @@
 
   <script src="script.js"></script>
   <script>
-    function formatPaymentMethod(method) {
-      const methods = {
-        'cash': 'Наличные',
-        'card': 'Карта'
-      };
-      return methods[method] || 'Не указан';
-    }
-
     function formatGender(method) {
       const methods = {
         'male': 'Мужской',
@@ -105,43 +98,11 @@
         document.getElementById('profile-date').textContent = new Date(user.created_at).toLocaleDateString();
       }
       
-      // Загрузить заказы
-      const orders = await fetch('http://localhost:3000/api/orders', {
-        credentials: 'include'
-      }).then(res => res.json());
+      // Загрузить заказы (3 последних)
+      const orders = await loadOrders();
+      showOrders(orders.slice(0, 3), 'orders-list', false);
       
-      const ordersContainer = document.getElementById('orders-list');
-      
-      if (orders.length === 0) {
-        ordersContainer.innerHTML = '<p>У вас пока нет заказов</p>';
-      } else {
-        ordersContainer.innerHTML = orders.map(order => `
-          <div class="order-card">
-            <div class="order-header">
-              <h3>Заказ №${order.id}</h3>
-              <span class="order-status ${order.status}">${order.status}</span>
-              <span class="order-date">${new Date(order.created_at).toLocaleDateString()}</span>
-              <span class="order-total">${order.total_price.toLocaleString()} ₽</span>
-            </div>
-            <div class="order-delivery-info">
-              <p><strong>Телефон:</strong> ${order.customer_phone}</p>
-              <p><strong>Адрес:</strong> ${order.delivery_address}</p>
-              <p><strong>Способ оплаты:</strong> ${formatPaymentMethod(order.payment_method)}</p>
-            </div>
-            <div class="order-items">
-              ${order.items.map(item => `
-                <div class="order-item">
-                  <img src="${item.image_url}" alt="${item.name}">
-                  <div>
-                    <p>${item.name}</p>
-                    <p>${item.price.toLocaleString()} ₽ × ${item.quantity}</p>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `).join('');
-      }
+      updateCartCount();
     });
   </script>
 </body>

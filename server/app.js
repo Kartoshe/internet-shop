@@ -244,28 +244,88 @@ app.post('/api/orders', authenticate, async (req, res) => {
 });
 
 // История заказов пользователя
+// История заказов с фильтрами
 app.get('/api/orders', authenticate, async (req, res) => {
   try {
-    const { rows } = await db.query(
-      `SELECT o.id, o.total_price, o.status, o.created_at, 
-      o.customer_phone, o.delivery_address, o.payment_method, 
-      json_agg(json_build_object(
-         'id', p.id,
-         'name', p.name, 
-         'price', p.price,
-         'quantity', oi.quantity,
-         'image_url', p.image_url
-       )) as items
-       FROM orders o
-       JOIN order_items oi ON o.id = oi.order_id
-       JOIN products p ON oi.product_id = p.id
-       WHERE o.user_id = $1
-       GROUP BY o.id
-       ORDER BY o.created_at DESC`,
-      [req.user.id]
-    );
+    const { status, date_from, date_to } = req.query;
+    
+    let query = `
+      SELECT 
+        o.id, 
+        o.total_price, 
+        o.status, 
+        o.created_at,
+        o.customer_phone,
+        o.delivery_address,
+        o.payment_method,
+        json_agg(json_build_object(
+          'id', p.id,
+          'name', p.name, 
+          'price', p.price,
+          'quantity', oi.quantity,
+          'image_url', p.image_url
+        )) as items
+      FROM orders o
+      JOIN order_items oi ON o.id = oi.order_id
+      JOIN products p ON oi.product_id = p.id
+      WHERE o.user_id = $1
+    `;
+    
+    const params = [req.user.id];
+    let paramIndex = 2;
+    
+    if (status) {
+      query += ` AND o.status = $${paramIndex++}`;
+      params.push(status);
+    }
+    
+    if (date_from) {
+      query += ` AND o.created_at >= $${paramIndex++}`;
+      params.push(date_from);
+    }
+    
+    if (date_to) {
+      query += ` AND o.created_at <= $${paramIndex++}`;
+      params.push(`${date_to}T23:59:59.999Z`);
+    }
+    
+    query += `
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `;
+    
+    const { rows } = await db.query(query, params);
     res.json(rows);
   } catch (err) {
+    console.error('Ошибка получения заказов:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Отмена заказа
+app.post('/api/orders/:id/cancel', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Проверяем, что заказ принадлежит пользователю
+    const { rows } = await db.query(
+      'SELECT id FROM orders WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Заказ не найден' });
+    }
+    
+    // Обновляем статус заказа
+    await db.query(
+      'UPDATE orders SET status = $1 WHERE id = $2',
+      ['cancelled', id]
+    );
+    
+    res.json({ message: 'Заказ отменен' });
+  } catch (err) {
+    console.error('Ошибка отмены заказа:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

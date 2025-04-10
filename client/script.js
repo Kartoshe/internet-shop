@@ -188,3 +188,114 @@ function addToCartWithValidation(productId) {
 
     addToCart(productId, quantity);
 }
+
+// Форматирование данных
+function formatPaymentMethod(method) {
+  const methods = {
+    'cash': 'Наличные',
+    'card': 'Карта'
+  };
+  return methods[method] || 'Не указан';
+}
+
+// Работа с заказами
+async function loadOrders(filters = {}) {
+  try {
+    const query = new URLSearchParams(filters).toString();
+    const response = await fetch(`http://localhost:3000/api/orders?${query}`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) throw new Error('Ошибка загрузки заказов');
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка:', error);
+    return [];
+  }
+}
+
+async function cancelOrder(orderId) {
+  if (!confirm('Вы действительно хотите отменить этот заказ?')) return false;
+  
+  try {
+    const response = await fetch(`http://localhost:3000/api/orders/${orderId}/cancel`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    if (!response.ok) throw new Error('Ошибка отмены заказа');
+    return true;
+  } catch (error) {
+    alert(error.message);
+    return false;
+  }
+}
+
+// Функция для отображения заказов
+function showOrders(orders, containerId, showDetails = false) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!orders || orders.length === 0) {
+    container.innerHTML = '<p>Заказы не найдены</p>';
+    return;
+  }
+
+  container.innerHTML = orders.map(order => `
+    <div class="order-card ${showDetails ? '' : 'compact'}">
+      <div class="order-header">
+        <h3>Заказ №${order.id}</h3>
+        <span class="order-date">
+          ${new Date(order.created_at).toLocaleDateString('ru-RU')}
+        </span>
+        <span class="order-status ${order.status}">${getStatusText(order.status)}</span>
+        <span class="order-total">${order.total_price.toLocaleString()} ₽</span>
+      </div>
+      
+      ${showDetails ? `
+        <div class="order-delivery-info">
+          <p><strong>Телефон:</strong> ${order.customer_phone || 'Не указан'}</p>
+          <p><strong>Адрес:</strong> ${order.delivery_address || 'Не указан'}</p>
+          <p><strong>Способ оплаты:</strong> ${formatPaymentMethod(order.payment_method)}</p>
+          <p><strong>Статус:</strong> ${getStatusText(order.status)}</p>
+        </div>
+      ` : ''}
+      
+      <div class="order-items">
+        ${order.items.slice(0, showDetails ? 10 : 2).map(item => `
+          <div class="order-item" onclick="window.location.href='product.html?id=${item.id}'" style="cursor:pointer">
+            <img src="${item.image_url || 'images/no-image.png'}" alt="${item.name}">
+            <div>
+              <p><strong>${item.name}</strong></p>
+              <p>${item.price.toLocaleString()} ₽ × ${item.quantity}</p>
+            </div>
+          </div>
+        `).join('')}
+        
+        ${!showDetails && order.items.length > 2 ? 
+          `<p>+ ещё ${order.items.length - 2} товара</p>` : ''}
+      </div>
+      
+      ${showDetails && order.status === 'pending' ? `
+        <div class="order-actions">
+          <button onclick="repeatOrder(${order.id})" class="btn">
+            Повторить заказ
+          </button>
+          <button onclick="cancelOrder(${order.id})" class="btn btn-cancel">
+            Отменить заказ
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+function getStatusText(status) {
+  const statusMap = {
+    'pending': 'В обработке',
+    'completed': 'Завершен',
+    'cancelled': 'Отменен',
+    'shipped': 'Отправлен'
+  };
+  return statusMap[status] || status;
+}

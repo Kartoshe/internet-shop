@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>История заказов - Интернет-магазин</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Главная</a>
+      <a href="catalog.html">Каталог</a>
+      <a href="cart.html">Корзина (<span class="cart-count">0</span>)</a>
+      <div id="auth-links">
+        <a href="login.html" id="login-link">Войти</a>
+        <a href="register.html" id="register-link">Регистрация</a>
+        <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <button id="logout-btn" style="display:none">Выйти</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="orders-page">
+    <h1>История заказов</h1>
+    
+    <div class="orders-filter">
+      <div class="filter-group">
+        <label for="status-filter">Статус</label>
+        <select id="status-filter" class="form-control">
+          <option value="all">Все заказы</option>
+          <option value="pending">В обработке</option>
+          <option value="completed">Завершенные</option>
+          <option value="cancelled">Отмененные</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label for="date-from">С</label>
+        <input type="date" id="date-from" class="form-control">
+      </div>
+      
+      <div class="filter-group">
+        <label for="date-to">По</label>
+        <input type="date" id="date-to" class="form-control">
+      </div>
+      
+      <button id="apply-filters" class="btn btn-primary">Применить</button>
+    </div>
+    
+    <div id="orders-list" class="orders-list">
+      <p>Загрузка заказов...</p>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2023 Интернет-магазин</p>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Проверка авторизации
+      if (!await checkAuth()) {
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      // Настройка интерфейса
+      document.getElementById('login-link').style.display = 'none';
+      document.getElementById('register-link').style.display = 'none';
+      document.getElementById('account-link').style.display = 'inline-block';
+      document.getElementById('logout-btn').style.display = 'inline-block';
+      document.getElementById('logout-btn').addEventListener('click', logout);
+      
+      // Фильтрация заказов
+      document.getElementById('apply-filters').addEventListener('click', async () => {
+        const status = document.getElementById('status-filter').value;
+        const dateFrom = document.getElementById('date-from').value;
+        const dateTo = document.getElementById('date-to').value;
+        
+        const filters = {};
+        if (status !== 'all') filters.status = status;
+        if (dateFrom) filters.date_from = dateFrom;
+        if (dateTo) filters.date_to = dateTo;
+        
+        document.getElementById('orders-list').innerHTML = '<p>Загрузка...</p>';
+        const orders = await loadOrders(filters);
+        showOrders(orders, 'orders-list', true);
+      });
+      
+      // Первая загрузка
+      const orders = await loadOrders();
+      showOrders(orders, 'orders-list', true);
+      updateCartCount();
+    });
+    
+    async function repeatOrder(orderId) {
+      const orders = await loadOrders();
+      const order = orders.find(o => o.id == orderId);
+      if (!order) return;
+      
+      order.items.forEach(item => {
+        addToCart(item.id, item.quantity);
+      });
+      
+      alert('Товары добавлены в корзину!');
+      updateCartCount();
+    }
+  </script>
+</body>
+</html>
