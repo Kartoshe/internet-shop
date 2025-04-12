@@ -70,7 +70,7 @@
         
         // Получаем полную информацию о товарах в корзине
         const productIds = cartItems.map(item => item.id);
-        const response = await fetch(`http://localhost:3000/api/products?ids=${productIds.join(',')}`);
+        const response = await fetch(`/api/products?ids=${productIds.join(',')}`);
         const products = await response.json();
         
         // Сопоставляем товары с количеством в корзине
