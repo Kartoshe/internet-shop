@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Статистика продаж</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="cookieConsent" style="display:none; position:fixed; bottom:0; width:100%; background:#f5f5f5; padding:10px; text-align:center; z-index:1000;">
+        <p>Мы используем cookies для улучшения работы сайта. Продолжая, вы соглашаетесь с нашей <a href="privacy.html">политикой конфиденциальности</a>.</p>
+        <button id="acceptCookies">Принять</button>
+        <button id="rejectCookies">Отклонить</button>
+    </div>
+    <header>
+        <nav>
+          <a href="index.html" class="active">Главная</a>
+          <a href="catalog.html">Каталог</a>
+          <a href="cart.html">Корзина (<span class="cart-count">0</span>)</a>
+          <div id="auth-links">
+            <a href="login.html" id="login-link">Войти</a>
+            <a href="register.html" id="register-link">Регистрация</a>
+            <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+            <a href="stats.html" id="stats-link" style="display:none">Статистика</a>
+            <button id="logout-btn" style="display:none">Выйти</button>
+          </div>
+        </nav>
+      </header>
+    <h1>Статистика</h1>
+    
+    <div class="stats-grid">
+        <div class="section">
+            <h2>Посещаемость</h2>
+            <div class="filters">
+                <select id="traffic-period">
+                    <option value="day" selected>По дням</option>
+                    <option value="week">По неделям</option>
+                    <option value="month">По месяцам</option>
+                </select>
+                
+                <select id="traffic-page">
+                    <option value="">Все страницы</option>
+                    <option value="/account.html">Личный кабинет</option>
+                    <option value="/cart.html">Корзина</option>
+                    <option value="/catalog.html">Каталог</option>
+                    <option value="/checkout.html">Оформление заказа</option>
+                    <option value="/index.html">Главная</option>
+                    <option value="/login.html">Вход</option>
+                    <option value="/orders.html">Заказы</option>
+                    <option value="/privacy.html">Политика конфиденциальности</option>
+                    <option value="/product.html">Страница продукта</option>
+                    <option value="/register.html">Регистрация</option>
+                </select>
+                
+                <select id="traffic-category">
+                    <option value="">Все категории</option>
+                </select>
+            </div>
+            <div class="chart-container">
+                <canvas id="trafficChart"></canvas>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Продажи</h2>
+            <div class="filters">
+                <select id="sales-period">
+                    <option value="day" selected>По дням</option>
+                    <option value="week">По неделям</option>
+                    <option value="month">По месяцам</option>
+                </select>
+                
+                <select id="sales-category">
+                    <option value="">Все категории</option>
+                </select>
+            </div>
+            <div class="chart-container">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2023 Интернет-магазин.</p>
+      </footer>
+
+      <script src="script.js"></script>
+      <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isAuth = await checkAuth();
+            if (!isAuth) {
+                localStorage.setItem('redirectAfterLogin', window.location.pathname);
+                window.location.href = 'login.html';
+                return;
+            }
+
+            trackEvent('page_view');
+            await loadCategories();
+            initCharts();
+            handleTrafficPageChange(); 
+            loadTrafficData();
+            loadSalesData();
+            
+            document.getElementById('traffic-period').addEventListener('change', loadTrafficData);
+            document.getElementById('traffic-page').addEventListener('change', handleTrafficPageChange);
+            document.getElementById('traffic-category').addEventListener('change', loadTrafficData);
+            document.getElementById('sales-period').addEventListener('change', loadSalesData);
+            document.getElementById('sales-category').addEventListener('change', loadSalesData);
+        });
+
+        let salesChart, trafficChart;
+
+        async function loadTrafficData() {
+            try {
+                const page = document.getElementById('traffic-page').value;
+                const category = document.getElementById('traffic-category').value;
+                
+                const traffic = await fetchStats('/api/stats/traffic', { page, category });
+                updateTrafficChart(traffic);
+            } catch (err) {
+                console.error('Ошибка загрузки данных посещений:', err);
+                alert('Не удалось загрузить статистику посещений');
+            }
+        }
+
+        async function loadSalesData() {
+            try {
+                const category = document.getElementById('sales-category').value;
+                
+                const sales = await fetchStats('/api/stats/sales', { category });
+                updateSalesChart(sales);
+            } catch (err) {
+                console.error('Ошибка загрузки данных продаж:', err);
+                alert('Не удалось загрузить статистику продаж');
+            }
+        }
+
+        async function fetchStats(endpoint, extraParams = {}) {
+            const periodKey = endpoint.includes('traffic') ? 'traffic-period' : 'sales-period';
+            const params = new URLSearchParams({
+                period: document.getElementById(periodKey).value,
+                ...extraParams
+            });
+            
+            const res = await fetch(`${endpoint}?${params}`, {
+                credentials: 'include'
+            });
+            
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        }
+
+        function updateSalesChart(data) {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            if (salesChart) salesChart.destroy();
+            
+            salesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => new Date(d.period).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Объем продаж (₽)',
+                        data: data.map(d => d.total_sales),
+                        borderColor: '#4CAF50',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function updateTrafficChart(data) {
+            const ctx = document.getElementById('trafficChart').getContext('2d');
+            if (trafficChart) trafficChart.destroy();
+            
+            trafficChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => new Date(d.period).toLocaleDateString()),
+                    datasets: [{
+                        label: 'Посещаемость',
+                        data: data.map(d => d.visits),
+                        borderColor: '#2196F3',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        async function loadCategories() {
+            const categories = await fetch('/api/categories', { credentials: 'include' }).then(r => r.json());
+            
+            const trafficSelect = document.getElementById('traffic-category');
+            categories.forEach(c => {
+                trafficSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+
+            const salesSelect = document.getElementById('sales-category');
+            categories.forEach(c => {
+                salesSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        function handleTrafficPageChange() {
+            const page = document.getElementById('traffic-page').value;
+            const categorySelect = document.getElementById('traffic-category');
+            categorySelect.style.display = page === '/product.html' ? 'inline-block' : 'none';
+            loadTrafficData();
+        }
+
+        function initCharts() {
+            // Пустая функция для возможной инициализации
+        }
+    </script>
+</body>
+</html>

@@ -7,6 +7,11 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="cookieConsent" style="display:none; position:fixed; bottom:0; width:100%; background:#f5f5f5; padding:10px; text-align:center; z-index:1000;">
+    <p>Мы используем cookies для улучшения работы сайта. Продолжая, вы соглашаетесь с нашей <a href="privacy.html">политикой конфиденциальности</a>.</p>
+    <button id="acceptCookies">Принять</button>
+    <button id="rejectCookies">Отклонить</button>
+  </div>
   <header>
     <nav>
       <a href="index.html">Главная</a>
@@ -16,6 +21,7 @@
         <a href="login.html" id="login-link">Войти</a>
         <a href="register.html" id="register-link">Регистрация</a>
         <a href="account.html" id="account-link" style="display:none">Личный кабинет</a>
+        <a href="stats.html" id="stats-link" style="display:none">Статистика</a>
         <button id="logout-btn" style="display:none">Выйти</button>
       </div>
     </nav>
@@ -70,12 +76,12 @@
         return;
       }
       
-      // Показать кнопку выхода
-      document.getElementById('login-link').style.display = 'none';
-      document.getElementById('register-link').style.display = 'none';
-      document.getElementById('account-link').style.display = 'inline-block';
-      document.getElementById('logout-btn').style.display = 'inline-block';
-      document.getElementById('logout-btn').addEventListener('click', logout);
+      // // Показать кнопку выхода
+      // document.getElementById('login-link').style.display = 'none';
+      // document.getElementById('register-link').style.display = 'none';
+      // document.getElementById('account-link').style.display = 'inline-block';
+      // document.getElementById('logout-btn').style.display = 'inline-block';
+      // document.getElementById('logout-btn').addEventListener('click', logout);
       
       // Загрузить данные пользователя
       const user = await fetch('http://localhost:3000/api/me', {

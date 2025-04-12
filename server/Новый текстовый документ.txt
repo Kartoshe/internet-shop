@@ -48,6 +48,21 @@ CREATE TABLE IF NOT EXISTS order_items (
   PRIMARY KEY (order_id, product_id)
 );
 
+CREATE TABLE IF NOT EXISTS tracking (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    event_type VARCHAR(50) NOT NULL,
+    product_id INTEGER REFERENCES products(id),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE tracking ADD COLUMN IF NOT EXISTS page_url VARCHAR(255);
+ALTER TABLE tracking ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+
+CREATE INDEX idx_tracking_created_at ON tracking(created_at);
+CREATE INDEX idx_tracking_event_type ON tracking(event_type);
+
 -- Тестовые данные 
 INSERT INTO products (name, price, description, category, image_url, rating, stock_quantity, specifications) VALUES
 ('Ноутбук ASUS ROG Strix', 89990, 'Игровой ноутбук с экраном 15.6", процессор Intel Core i7', 'Электроника', 'https://example.com/laptop.jpg', 4.7, 10, '{"processor": "Intel Core i7", "ram": "16GB", "storage": "512GB SSD"}'),

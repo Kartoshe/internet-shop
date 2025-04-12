@@ -22,6 +22,30 @@ async function checkAuth() {
   }
 }
 
+// Новая функция для обновления навигации
+async function updateNav() {
+  const isAuth = await checkAuth();
+  const loginLink = document.getElementById('login-link');
+  const registerLink = document.getElementById('register-link');
+  const accountLink = document.getElementById('account-link');
+  const statsLink = document.getElementById('stats-link');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  if (isAuth) {
+      if (loginLink) loginLink.style.display = 'none';
+      if (registerLink) registerLink.style.display = 'none';
+      if (accountLink) accountLink.style.display = 'inline';
+      if (statsLink) statsLink.style.display = 'inline'; // Показываем ссылку на статистику
+      if (logoutBtn) logoutBtn.style.display = 'inline';
+  } else {
+      if (loginLink) loginLink.style.display = 'inline';
+      if (registerLink) registerLink.style.display = 'inline';
+      if (accountLink) accountLink.style.display = 'none';
+      if (statsLink) statsLink.style.display = 'none'; // Скрываем ссылку на статистику
+      if (logoutBtn) logoutBtn.style.display = 'none';
+  }
+}
+
 // Выход
 async function logout() {
   try {
@@ -37,7 +61,11 @@ async function logout() {
 }
 
 // Добавление товара в корзину
-function addToCart(productId, quantity = 1) {
+async function addToCart(productId, quantity = 1) {
+  const product = await loadProduct(productId);
+  
+  trackEvent('add_to_cart', productId, product.category);
+  
   const existingItem = cartItems.find(item => item.id === productId);
   if (existingItem) {
     existingItem.quantity += quantity;
@@ -143,6 +171,7 @@ async function checkoutOrder(deliveryData) {
     if (!response.ok) throw new Error('Ошибка оформления заказа');
     
     const order = await response.json();
+    trackEvent('order_completed', null);
     localStorage.removeItem('cart');
     cartItems = [];
     return order;
@@ -214,7 +243,7 @@ async function loadOrders(filters = {}) {
   }
 }
 
-async function cancelOrder(orderId) {
+async function cancelOrder(orderId, updateUI = true) {
   if (!confirm('Вы действительно хотите отменить этот заказ?')) return false;
   
   try {
@@ -224,6 +253,31 @@ async function cancelOrder(orderId) {
     });
     
     if (!response.ok) throw new Error('Ошибка отмены заказа');
+    
+    // Если updateUI включено, обновляем UI
+    if (updateUI) {
+      const orderCard = document.querySelector(`.order-card:has([onclick="cancelOrder(${orderId})"])`);
+      if (orderCard) {
+        // Обновляем статус в UI
+        const statusElement = orderCard.querySelector('.order-status');
+        statusElement.textContent = getStatusText('cancelled');
+        statusElement.className = 'order-status cancelled';
+        
+        // Удаляем кнопку "Отменить заказ"
+        const cancelButton = orderCard.querySelector('.btn-cancel');
+        if (cancelButton) cancelButton.remove();
+        
+        // Обновляем статус в секции доставки
+        const deliveryInfo = orderCard.querySelector('.order-delivery-info');
+        if (deliveryInfo) {
+          const statusText = deliveryInfo.querySelector('p:last-child');
+          if (statusText && statusText.textContent.includes('Статус')) {
+            statusText.innerHTML = `<strong>Статус:</strong> ${getStatusText('cancelled')}`;
+          }
+        }
+      }
+    }
+    
     return true;
   } catch (error) {
     alert(error.message);
@@ -276,14 +330,16 @@ function showOrders(orders, containerId, showDetails = false) {
           `<p>+ ещё ${order.items.length - 2} товара</p>` : ''}
       </div>
       
-      ${showDetails && order.status === 'pending' ? `
+      ${showDetails ? `
         <div class="order-actions">
           <button onclick="repeatOrder(${order.id})" class="btn">
             Повторить заказ
           </button>
-          <button onclick="cancelOrder(${order.id})" class="btn btn-cancel">
-            Отменить заказ
-          </button>
+          ${order.status === 'pending' ? `
+            <button onclick="cancelOrder(${order.id})" class="btn btn-cancel">
+              Отменить заказ
+            </button>
+          ` : ''}
         </div>
       ` : ''}
     </div>
@@ -299,3 +355,98 @@ function getStatusText(status) {
   };
   return statusMap[status] || status;
 }
+
+// Трекинг событий
+function trackEvent(eventType, productId = null, category = null, pageUrl = window.location.pathname) {
+  if (localStorage.getItem('cookieConsent') !== 'accepted') return;
+
+  const shouldLimitTracking = eventType !== 'add_to_cart'; // Не ограничиваем add_to_cart
+
+    if (shouldLimitTracking) {
+        const trackingKey = `tracked_${eventType}_${pageUrl}`;
+        const lastTracked = sessionStorage.getItem(trackingKey);
+
+        if (lastTracked) {
+            console.log(`Событие ${eventType} для ${pageUrl} уже зарегистрировано в этой сессии, пропускаем`);
+            return;
+        }
+    }
+
+  console.log(`Отправка трекинга: type=${eventType}, productId=${productId}, category=${category}, pageUrl=${pageUrl}`);
+  fetch('http://localhost:3000/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+          type: eventType,
+          productId: productId || null,
+          category: category || null,
+          pageUrl: pageUrl || null
+      })
+  })
+  .then(() => {
+    if (shouldLimitTracking) {
+      const trackingKey = `tracked_${eventType}_${pageUrl}`;
+      sessionStorage.setItem(trackingKey, 'true');
+    }
+  })
+  .catch(err => console.error('Ошибка трекинга:', err));
+}
+
+// Управление согласием на cookies
+function manageCookieConsent() {
+  const cookieConsent = document.getElementById('cookieConsent');
+  if (!cookieConsent) {
+      console.log('Баннер cookieConsent не найден на странице');
+      return;
+  }
+
+  const consent = localStorage.getItem('cookieConsent');
+  console.log('Проверка состояния cookieConsent:', consent);
+  if (consent === 'accepted' || consent === 'rejected') {
+      console.log('Скрываем баннер, так как выбор уже сделан:', consent);
+      cookieConsent.style.display = 'none';
+  } else {
+      console.log('Показываем баннер, так как выбор не сделан');
+      cookieConsent.style.display = 'block';
+  }
+}
+
+// Обработчики кнопок согласия
+document.getElementById('acceptCookies')?.addEventListener('click', () => {
+  console.log('Cookies приняты');
+  localStorage.setItem('cookieConsent', 'accepted');
+  document.getElementById('cookieConsent').style.display = 'none';
+  
+  const expiryDate = new Date();
+  expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+  document.cookie = `cookieConsent=accepted; expires=${expiryDate.toUTCString()}; path=/`;
+  if (currentUser) {
+      document.cookie = `user_id=${currentUser.id}; expires=${expiryDate.toUTCString()}; path=/`;
+  }
+});
+
+document.getElementById('rejectCookies')?.addEventListener('click', () => {
+  console.log('Cookies отклонены');
+  localStorage.setItem('cookieConsent', 'rejected');
+  document.getElementById('cookieConsent').style.display = 'none';
+  
+  document.cookie.split(";").forEach(c => {
+      const cookieName = c.split('=')[0].trim();
+      if (!['session_id', 'token'].includes(cookieName)) {
+          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      }
+  });
+});
+
+// Вызов при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+  manageCookieConsent();
+  updateNav();
+  updateCartCount();
+
+  const currentPage = window.location.pathname;
+    if (currentPage !== '/product.html') {
+      trackEvent('page_view');
+    }
+});

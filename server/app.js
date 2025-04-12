@@ -5,15 +5,22 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const db = require('./db');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
+
+
+
 app.use(cors({
-    origin: ['http://localhost:5500', 'http://127.0.0.1:5500', 'null'],
-    credentials: true
+    origin: ['http://localhost:5500', 'http://127.0.0.1:5500'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   }));
 app.use(cookieParser());
 app.use(express.json());
-app.use(express.static('../client'));
+
 
 const SECRET_KEY = process.env.SECRET_KEY || 'dev-secret-key';
 
@@ -335,5 +342,138 @@ app.get('/api/categories', async (req, res) => {
   const { rows } = await db.query('SELECT DISTINCT category FROM products');
   res.json(rows.map(row => row.category));
 });
+
+// Статистика трафика
+app.get('/api/stats/traffic', authenticate, async (req, res) => {
+  try {
+      const { period = 'month', page, category } = req.query;
+      
+      let query = `
+          SELECT 
+              DATE_TRUNC($1, created_at) as period,
+              COUNT(*) as visits
+          FROM tracking
+          WHERE 1=1
+      `;
+      const params = [period];
+      
+      if (page) {
+          if (page === '/product.html') {
+              query += ` AND event_type = 'product_view'`;
+          } else {
+              query += ` AND event_type = 'page_view' AND page_url = $2`;
+              params.push(page);
+          }
+      }
+      
+      if (category && page === '/product.html') {
+          query += ` AND category = $${params.length + 1}`;
+          params.push(category);
+      }
+      
+      query += ` GROUP BY period ORDER BY period`;
+      
+      const { rows } = await db.query(query, params);
+      res.json(rows);
+  } catch (err) {
+      console.error('Ошибка получения статистики трафика:', err);
+      res.status(500).json({ error: err.message });
+  }
+});
+
+// Статистика продаж
+app.get('/api/stats/sales', authenticate, async (req, res) => {
+  try {
+      const { period = 'month', category } = req.query;
+      
+      let query = `
+          SELECT 
+              DATE_TRUNC($1, o.created_at) as period,
+              SUM(o.total_price) as total_sales,
+              COUNT(*) as orders_count
+          FROM orders o
+      `;
+      
+      const params = [period];
+      
+      if (category) {
+          query += `
+              JOIN order_items oi ON o.id = oi.order_id 
+              JOIN products p ON p.id = oi.product_id
+              WHERE o.status = 'completed' AND p.category = $2
+          `;
+          params.push(category);
+      } else {
+          query += ` WHERE o.status = 'completed'`;
+      }
+      
+      query += ` GROUP BY period ORDER BY period`;
+      
+      const { rows } = await db.query(query, params);
+      res.json(rows);
+  } catch (err) {
+      res.status(500).json({ error: err.message });
+  }
+});
+
+// Топ товаров
+app.get('/api/stats/products', authenticate, async (req, res) => {
+  const { limit = 5, days = 30 } = req.query;
+  
+  try {
+    const { rows } = await db.query(
+      `SELECT 
+        p.id,
+        p.name,
+        SUM(oi.quantity) as total_sold,
+        SUM(oi.quantity * p.price) as total_revenue
+      FROM order_items oi
+      JOIN products p ON p.id = oi.product_id
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.created_at >= NOW() - INTERVAL '$$1 days'
+      GROUP BY p.id
+      ORDER BY total_sold DESC
+      LIMIT $2`,
+      [days, limit]
+    );
+    
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Трекинг событий
+app.post('/api/track', async (req, res) => {
+  try {
+      if (!req.body) {
+          console.error('Ошибка: req.body is undefined');
+          return res.status(400).json({ error: 'Тело запроса отсутствует' });
+      }
+
+      const { type, productId, category, pageUrl } = req.body;
+      const userAgent = req.get('User-Agent');
+      const userId = req.cookies.user_id || null;
+      
+      console.log(`Трекинг: type=${type}, productId=${productId}, category=${category}, pageUrl=${pageUrl}, userId=${userId}`);
+
+      await db.query(
+          `INSERT INTO tracking 
+              (user_id, event_type, product_id, category, page_url, user_agent)
+              VALUES ($1, $2, $3, $4, $5, $6)`,
+          [userId, type, productId || null, category || null, pageUrl || null, userAgent]
+      );
+      
+      const logEntry = `${new Date().toISOString()} | ${type} | User: ${userId || 'anonymous'} | Product: ${productId || 'N/A'} | Category: ${category || 'N/A'} | Page: ${pageUrl || 'N/A'} | UA: ${userAgent}\n`;
+      fs.appendFileSync(path.join(__dirname, 'tracking.log'), logEntry);
+      
+      res.status(200).end();
+  } catch (err) {
+      console.error('Ошибка трекинга:', err);
+      res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.use(express.static('../client'));
 
 app.listen(3000, () => console.log('Сервер запущен на порту 3000'));
