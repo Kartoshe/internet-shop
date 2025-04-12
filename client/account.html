@@ -84,7 +84,7 @@
       // document.getElementById('logout-btn').addEventListener('click', logout);
       
       // Загрузить данные пользователя
-      const user = await fetch('http://localhost:3000/api/me', {
+      const user = await fetch('/api/me', {
         credentials: 'include'
       }).then(res => res.json());
       

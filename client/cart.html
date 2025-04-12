@@ -107,7 +107,7 @@
       // Функция проверки наличия товаров
       const checkStock = async () => {
         const productIds = cartItems.map(item => item.id);
-        const response = await fetch(`http://localhost:3000/api/products/stock?ids=${productIds.join(',')}`);
+        const response = await fetch(`/api/products/stock?ids=${productIds.join(',')}`);
         const stockInfo = await response.json();
         
         let allAvailable = true;

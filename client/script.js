@@ -5,7 +5,7 @@ let cartItems = JSON.parse(localStorage.getItem('cart')) || [];
 // Проверка авторизации
 async function checkAuth() {
   try {
-    const response = await fetch('http://localhost:3000/api/me', {
+    const response = await fetch('/api/me', {
       credentials: 'include'
     });
     
@@ -49,7 +49,7 @@ async function updateNav() {
 // Выход
 async function logout() {
   try {
-    await fetch('http://localhost:3000/api/logout', {
+    await fetch('/api/logout', {
       method: 'POST',
       credentials: 'include'
     });
@@ -98,7 +98,7 @@ async function updateCartDisplay() {
   }
 
   const productIds = cartItems.map(item => item.id);
-  const products = await fetch(`http://localhost:3000/api/products?ids=${productIds.join(',')}`)
+  const products = await fetch(`/api/products?ids=${productIds.join(',')}`)
     .then(res => res.json());
 
   const orderItems = cartItems.map(cartItem => {
@@ -123,7 +123,7 @@ async function loadProducts(filters = {}) {
     console.log('Функция вызвана с параметрами:', filters);
     
     try {
-      const url = `http://localhost:3000/api/products?${new URLSearchParams(filters)}`;
+      const url = `/api/products?${new URLSearchParams(filters)}`;
       console.log('Запрос на:', url);
       
       const response = await fetch(url);
@@ -142,13 +142,13 @@ async function loadProducts(filters = {}) {
 
 // Загрузка категорий
 async function loadCategories() {
-  const response = await fetch('http://localhost:3000/api/categories');
+  const response = await fetch('/api/categories');
   return await response.json();
 }
 
 // Загрузка данных товара
 async function loadProduct(id) {
-  const response = await fetch(`http://localhost:3000/api/products/${id}`);
+  const response = await fetch(`/api/products/${id}`);
   if (!response.ok) throw new Error('Товар не найден');
   return await response.json();
 }
@@ -161,7 +161,7 @@ async function checkoutOrder(deliveryData) {
   }
 
   try {
-    const response = await fetch('http://localhost:3000/api/orders', {
+    const response = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -231,7 +231,7 @@ function formatPaymentMethod(method) {
 async function loadOrders(filters = {}) {
   try {
     const query = new URLSearchParams(filters).toString();
-    const response = await fetch(`http://localhost:3000/api/orders?${query}`, {
+    const response = await fetch(`/api/orders?${query}`, {
       credentials: 'include'
     });
     
@@ -247,7 +247,7 @@ async function cancelOrder(orderId, updateUI = true) {
   if (!confirm('Вы действительно хотите отменить этот заказ?')) return false;
   
   try {
-    const response = await fetch(`http://localhost:3000/api/orders/${orderId}/cancel`, {
+    const response = await fetch(`/api/orders/${orderId}/cancel`, {
       method: 'POST',
       credentials: 'include'
     });
@@ -373,7 +373,7 @@ function trackEvent(eventType, productId = null, category = null, pageUrl = wind
     }
 
   console.log(`Отправка трекинга: type=${eventType}, productId=${productId}, category=${category}, pageUrl=${pageUrl}`);
-  fetch('http://localhost:3000/api/track', {
+  fetch('/api/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
