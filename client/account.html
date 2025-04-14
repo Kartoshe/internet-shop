@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Личный кабинет - Интернет-магазин</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="chatbot.css">
 </head>
 <body>
   <div id="cookieConsent" style="display:none; position:fixed; bottom:0; width:100%; background:#f5f5f5; padding:10px; text-align:center; z-index:1000;">
@@ -52,6 +53,20 @@
         <a href="orders.html" class="btn-view-all">Посмотреть полную историю заказов →</a>
       </div>
     </div>
+
+    <div id="chatbot-container" class="chatbot-container collapsed">
+      <div id="chatbot-header" class="chatbot-header">
+        <span>Чат-бот</span>
+        <button id="chatbot-toggle" class="chatbot-toggle">💬</button>
+      </div>
+      <div id="chatbot-body" class="chatbot-body">
+        <div id="chatbot-messages" class="chatbot-messages"></div>
+        <div class="chatbot-input">
+          <input type="text" id="chatbot-input" placeholder="Введите запрос...">
+          <button id="chatbot-send">Отправить</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <footer>
@@ -59,6 +74,7 @@
   </footer>
 
   <script src="script.js"></script>
+  <script src="chatbot.js"></script>
   <script>
     function formatGender(method) {
       const methods = {

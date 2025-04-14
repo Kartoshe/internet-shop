@@ -147,7 +147,34 @@ app.get('/api/products', async (req, res) => {
         console.error('Ошибка SQL:', err); 
         res.status(500).json({ error: 'Ошибка сервера' });
       }
-  });
+});
+
+app.get('/api/products-for-chatbot', async (req, res) => {
+  try {
+    const { search, limit = 10 } = req.query;
+    let query = 'SELECT * FROM products';
+    const params = [];
+
+    if (search) {
+      query += ' WHERE name ILIKE $1 OR category ILIKE $1';
+      params.push(`%${search}%`);
+    }
+
+    const limitValue = parseInt(limit, 10);
+    if (isNaN(limitValue) || limitValue < 1) {
+      return res.status(400).json({ error: 'Некорректное значение параметра limit' });
+    }
+
+    query += ' LIMIT $' + (params.length + 1);
+    params.push(limitValue);
+
+    const { rows } = await db.query(query, params); // Заменили pool.query на db.query
+    res.json(rows);
+  } catch (err) {
+    console.error('Ошибка при поиске товаров для чат-бота:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 // Проверка наличия товаров
 app.get('/api/products/stock', async (req, res) => {
